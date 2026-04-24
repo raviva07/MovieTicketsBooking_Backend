@@ -158,24 +158,24 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
 
-   
+        // ✅ Allowed origins (no trailing slash)
         config.setAllowedOrigins(List.of(
-                "http://localhost:5173",
-                "https://movieticketsbookingfrontend.netlify.app/" 
+            "http://localhost:5173",
+            "https://movieticketsbookingfrontend.netlify.app"
         ));
 
-       
+        // ✅ Allowed methods
         config.setAllowedMethods(List.of(
-                "GET", "POST", "PUT", "DELETE", "OPTIONS"
+            "GET", "POST", "PUT", "DELETE", "OPTIONS"
         ));
 
-       
+        // ✅ Allowed headers
         config.setAllowedHeaders(List.of("*"));
 
-       
+        // ✅ Exposed headers
         config.setExposedHeaders(List.of("Authorization"));
 
-        
+        // ✅ Allow credentials
         config.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
@@ -183,5 +183,6 @@ public class SecurityConfig {
 
         return source;
     }
+
 
 }
