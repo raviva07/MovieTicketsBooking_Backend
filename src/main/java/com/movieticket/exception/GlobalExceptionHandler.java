@@ -10,7 +10,6 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -43,14 +42,14 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ApiResponse<Object>> handleAccessDenied(AccessDeniedException ex) {
         log.warn("AccessDenied: {}", ex.getMessage());
-        return buildResponse(HttpStatus.FORBIDDEN, "Access Denied", null);
+        return buildResponse(HttpStatus.FORBIDDEN, ex.getMessage(), null);
     }
 
     // ================= AUTH FAILURE =================
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<ApiResponse<Object>> handleAuthException(AuthenticationException ex) {
         log.warn("AuthException: {}", ex.getMessage());
-        return buildResponse(HttpStatus.UNAUTHORIZED, "Unauthorized", null);
+        return buildResponse(HttpStatus.UNAUTHORIZED, ex.getMessage(), null);
     }
 
     // ================= VALIDATION ERROR =================
@@ -65,12 +64,29 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.BAD_REQUEST, "Validation Failed", fieldErrors);
     }
 
-    // ================= GLOBAL FALLBACK =================
+    // ================= 🔥 ENUM / JSON PARSE ERROR =================
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ApiResponse<Object>> handleIllegalArgument(IllegalArgumentException ex) {
+        log.error("IllegalArgument: ", ex);
+        return buildResponse(HttpStatus.BAD_REQUEST, ex.getMessage(), null);
+    }
+
+    // ================= 🔥 GLOBAL FALLBACK =================
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Object>> handleGlobal(Exception ex) {
-        log.error("Unexpected error: ", ex); // full stacktrace
-        return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR,
-                "Something went wrong. Please try again.", null);
+
+        // 🔥 FULL ERROR IN LOGS
+        log.error("Unexpected error: ", ex);
+
+        // 🔥 SEND REAL MESSAGE TO FRONTEND (IMPORTANT)
+        String message = ex.getMessage();
+
+        // fallback if null
+        if (message == null || message.isBlank()) {
+            message = "Internal server error";
+        }
+
+        return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, message, null);
     }
 
     // ================= COMMON RESPONSE BUILDER =================
@@ -79,7 +95,6 @@ public class GlobalExceptionHandler {
                 .success(false)
                 .message(message)
                 .data(data)
-                
                 .build();
 
         return new ResponseEntity<>(response, status);
