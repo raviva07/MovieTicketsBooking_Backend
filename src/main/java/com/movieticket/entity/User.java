@@ -8,7 +8,7 @@ import org.springframework.data.mongodb.core.mapping.Field;
 
 import java.io.Serializable;
 
-@Document(collection = "users")
+@Document(collection = "movie_users")
 @Getter
 @Setter
 @NoArgsConstructor
