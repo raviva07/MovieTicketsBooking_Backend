@@ -27,10 +27,11 @@ public class JwtUtil {
     @PostConstruct
     public void init() {
         if (secret == null || secret.length() < 32) {
-            throw new IllegalStateException("JWT secret must be at least 32 characters long");
+            throw new IllegalStateException("JWT secret missing or too short in application.properties");
         }
         this.key = Keys.hmacShaKeyFor(secret.getBytes());
     }
+
 
 
     public String generateToken(String email) {
