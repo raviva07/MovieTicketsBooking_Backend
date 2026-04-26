@@ -2,3 +2,10 @@ spring:
   data:
     mongodb:
       uri: mongodb://localhost:27017/movie_ticket_test_db
+
+  autoconfigure:
+    exclude: []   # keep default unless you really need exclusion
+
+logging:
+  level:
+    org.springframework.security: DEBUG

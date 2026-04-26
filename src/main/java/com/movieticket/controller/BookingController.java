@@ -3,6 +3,7 @@ package com.movieticket.controller;
 import com.movieticket.dto.request.BookingRequest;
 import com.movieticket.dto.response.ApiResponse;
 import com.movieticket.dto.response.BookingResponse;
+import com.movieticket.exception.UnauthorizedException;
 import com.movieticket.service.BookingService;
 import com.movieticket.util.Constants;
 import lombok.RequiredArgsConstructor;
@@ -19,10 +20,13 @@ public class BookingController {
 
     private final BookingService bookingService;
 
-    // SAFE USERNAME HANDLER
     private String getUsername(Authentication auth) {
-        return (auth != null) ? auth.getName() : "testUser";
+        if (auth == null || auth.getName() == null || auth.getName().isBlank()) {
+            throw new UnauthorizedException("User is not authenticated");
+        }
+        return auth.getName();
     }
+
 
     // ================= CREATE =================
     @PostMapping

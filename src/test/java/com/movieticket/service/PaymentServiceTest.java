@@ -6,16 +6,18 @@ import com.movieticket.entity.*;
 import com.movieticket.repository.BookingRepository;
 import com.movieticket.repository.PaymentRepository;
 import com.movieticket.repository.UserRepository;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.*;
+import org.springframework.test.context.ActiveProfiles;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
-import org.springframework.test.context.ActiveProfiles;
 @ActiveProfiles("test")
 class PaymentServiceTest {
 
@@ -27,6 +29,9 @@ class PaymentServiceTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private NotificationService notificationService; // ✅ FIX
 
     @InjectMocks
     private PaymentService paymentService;
@@ -51,11 +56,13 @@ class PaymentServiceTest {
                 .id("p1")
                 .bookingId("b1")
                 .amount(BigDecimal.valueOf(100))
-                .status(PaymentStatus.SUCCESS) // ✅ IMPORTANT FIX
+                .status(PaymentStatus.INITIATED)
+                .razorpayOrderId("order1")
+                .createdAt(Instant.now())
                 .build();
     }
 
-    // ✅ VERIFY PAYMENT
+    // ================= VERIFY PAYMENT =================
     @Test
     void verifyPayment_Success() {
 
@@ -73,16 +80,45 @@ class PaymentServiceTest {
         when(userRepository.findByEmail("testUser"))
                 .thenReturn(Optional.of(user));
 
-        PaymentResponse res = paymentService.verifyPayment(req, "testUser");
+        when(notificationService.send(any())).thenReturn(null); // ✅ FIX
+
+        PaymentResponse res =
+                paymentService.verifyPayment(req, "testUser");
 
         assertNotNull(res);
         assertEquals("b1", res.getBookingId());
         assertEquals(PaymentStatus.SUCCESS.name(), res.getStatus());
+
+        verify(notificationService, times(1)).send(any());
     }
 
-    // ✅ GET PAYMENT
+    // ================= VERIFY UNAUTHORIZED =================
+    @Test
+    void verifyPayment_Unauthorized() {
+
+        booking.setUserId("otherUser");
+
+        PaymentVerifyRequest req = new PaymentVerifyRequest();
+        req.setRazorpayOrderId("order1");
+
+        when(paymentRepository.findByRazorpayOrderId("order1"))
+                .thenReturn(Optional.of(payment));
+
+        when(bookingRepository.findById("b1"))
+                .thenReturn(Optional.of(booking));
+
+        when(userRepository.findByEmail("testUser"))
+                .thenReturn(Optional.of(user));
+
+        assertThrows(RuntimeException.class,
+                () -> paymentService.verifyPayment(req, "testUser"));
+    }
+
+    // ================= GET BY BOOKING =================
     @Test
     void getByBookingId_Success() {
+
+        payment.setStatus(PaymentStatus.SUCCESS);
 
         when(paymentRepository.findByBookingId("b1"))
                 .thenReturn(Optional.of(payment));
@@ -93,22 +129,57 @@ class PaymentServiceTest {
         when(userRepository.findByEmail("testUser"))
                 .thenReturn(Optional.of(user));
 
-        PaymentResponse res = paymentService.getByBookingId("b1", "testUser");
+        PaymentResponse res =
+                paymentService.getByBookingId("b1", "testUser");
 
         assertNotNull(res);
         assertEquals("b1", res.getBookingId());
         assertEquals(PaymentStatus.SUCCESS.name(), res.getStatus());
     }
 
-    // ✅ NULL CASE
+    // ================= GET UNAUTHORIZED =================
+    @Test
+    void getByBookingId_Unauthorized() {
+
+        booking.setUserId("otherUser");
+
+        when(paymentRepository.findByBookingId("b1"))
+                .thenReturn(Optional.of(payment));
+
+        when(bookingRepository.findById("b1"))
+                .thenReturn(Optional.of(booking));
+
+        when(userRepository.findByEmail("testUser"))
+                .thenReturn(Optional.of(user));
+
+        assertThrows(RuntimeException.class,
+                () -> paymentService.getByBookingId("b1", "testUser"));
+    }
+
+    // ================= GET NOT FOUND =================
     @Test
     void getByBookingId_NotFound() {
 
         when(paymentRepository.findByBookingId("b1"))
                 .thenReturn(Optional.empty());
 
-        PaymentResponse res = paymentService.getByBookingId("b1", "testUser");
+        PaymentResponse res =
+                paymentService.getByBookingId("b1", "testUser");
 
         assertNull(res);
+    }
+
+    // ================= VERIFY PAYMENT NOT FOUND =================
+    @Test
+    void verifyPayment_NotFound() {
+
+        PaymentVerifyRequest req = new PaymentVerifyRequest();
+        req.setRazorpayOrderId("order1");
+
+        when(paymentRepository.findByRazorpayOrderId("order1"))
+                .thenReturn(Optional.empty());
+
+        assertThrows(RuntimeException.class,
+                () -> paymentService.verifyPayment(req, "testUser"));
     }
 }

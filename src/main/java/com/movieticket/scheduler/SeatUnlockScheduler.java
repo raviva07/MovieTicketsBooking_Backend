@@ -32,7 +32,7 @@ public class SeatUnlockScheduler {
         Instant nowInstant = Instant.now();
         LocalDateTime now = LocalDateTime.now(ZoneId.systemDefault());
 
-        // ================= EXPIRED BOOKINGS =================
+        // ================= 1. EXPIRE PENDING BOOKINGS =================
         List<Booking> expiredBookings =
                 bookingRepository.findByStatusAndExpiresAtBefore(
                         BookingStatus.PENDING,
@@ -41,19 +41,23 @@ public class SeatUnlockScheduler {
 
         for (Booking booking : expiredBookings) {
             try {
-                if (booking.getSeatIds() != null) {
+
+                // release locked seats
+                if (booking.getSeatIds() != null && !booking.getSeatIds().isEmpty()) {
                     seatService.releaseExpiredSeats(booking.getSeatIds());
                 }
 
                 booking.setStatus(BookingStatus.EXPIRED);
                 bookingRepository.save(booking);
 
+                log.info("Booking expired: {}", booking.getId());
+
             } catch (Exception ex) {
                 log.error("Expire error {}", booking.getId(), ex);
             }
         }
 
-        // ================= COMPLETED BOOKINGS =================
+        // ================= 2. RELEASE SEATS AFTER SHOW ENDS =================
         List<Booking> confirmedBookings =
                 bookingRepository.findByStatus(BookingStatus.CONFIRMED);
 
@@ -65,20 +69,22 @@ public class SeatUnlockScheduler {
 
                 var show = showOpt.get();
 
+                // show finished
                 if (show.getEndTime() != null &&
                         show.getEndTime().isBefore(now)) {
 
-                    booking.setStatus(BookingStatus.COMPLETED);
-                    bookingRepository.save(booking);
-
-                    if (booking.getSeatIds() != null) {
+                    // ONLY FREE SEATS (NO STATUS CHANGE)
+                    if (booking.getSeatIds() != null && !booking.getSeatIds().isEmpty()) {
                         seatService.releaseBookedSeats(booking.getSeatIds());
                     }
+
+                    log.info("Seats released for completed show booking: {}", booking.getId());
                 }
 
             } catch (Exception ex) {
-                log.error("Complete error {}", booking.getId(), ex);
+                log.error("Show completion error {}", booking.getId(), ex);
             }
         }
     }
 }
+

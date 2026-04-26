@@ -3,43 +3,62 @@ package com.movieticket.service;
 import com.movieticket.dto.request.NotificationRequest;
 import com.movieticket.dto.response.NotificationResponse;
 import com.movieticket.entity.Notification;
+import com.movieticket.entity.User;
 import com.movieticket.exception.ResourceNotFoundException;
 import com.movieticket.integration.EmailService;
 import com.movieticket.mapper.NotificationMapper;
 import com.movieticket.repository.NotificationRepository;
+import com.movieticket.repository.UserRepository;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.context.ActiveProfiles;
 
 import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.springframework.test.context.ActiveProfiles;
 @ActiveProfiles("test")
 @ExtendWith(MockitoExtension.class)
 class NotificationServiceTest {
 
-    @Mock private NotificationRepository notificationRepository;
-    @Mock private NotificationMapper notificationMapper;
-    @Mock private EmailService emailService;
+    @Mock
+    private NotificationRepository notificationRepository;
 
-    @InjectMocks private NotificationService notificationService;
+    @Mock
+    private NotificationMapper notificationMapper;
+
+    @Mock
+    private EmailService emailService;
+
+    @Mock
+    private UserRepository userRepository; // ✅ FIX (IMPORTANT)
+
+    @InjectMocks
+    private NotificationService notificationService;
 
     private NotificationRequest req;
     private Notification entity;
     private NotificationResponse resp;
+    private User user;
 
     @BeforeEach
     void setUp() {
+
         req = new NotificationRequest();
         req.setUserId("user1");
         req.setTitle("Test Title");
         req.setMessage("Test Message");
+
+        user = new User();
+        user.setId("user1");
+        user.setEmail("user@gmail.com"); // valid email
 
         entity = Notification.builder()
                 .id("notif1")
@@ -58,34 +77,70 @@ class NotificationServiceTest {
                 .build();
     }
 
+    // ================= SEND =================
     @Test
     void send_shouldReturnResponse() {
-        when(notificationMapper.toEntity(req)).thenReturn(entity);
-        when(notificationRepository.save(entity)).thenReturn(entity);
-        when(notificationMapper.toResponse(entity)).thenReturn(resp);
+
+        when(userRepository.findById("user1"))
+                .thenReturn(Optional.of(user)); // ✅ REQUIRED
+
+        when(notificationMapper.toEntity(req))
+                .thenReturn(entity);
+
+        when(notificationRepository.save(any()))
+                .thenReturn(entity);
+
+        when(notificationMapper.toResponse(entity))
+                .thenReturn(resp);
 
         NotificationResponse result = notificationService.send(req);
 
         assertEquals("notif1", result.getId());
-        verify(emailService, times(1)).sendEmail("user1", "Test Title", "Test Message");
-        verify(notificationRepository, times(1)).save(entity);
+
+        verify(notificationRepository, times(1)).save(any());
+        verify(emailService, times(1))
+                .sendEmail("user@gmail.com", "Test Title", "Test Message");
     }
 
+    // ================= GET BY USER =================
     @Test
     void getByUser_shouldReturnList() {
-        when(notificationRepository.findByUserId("user1")).thenReturn(List.of(entity));
-        when(notificationMapper.toResponse(entity)).thenReturn(resp);
 
-        List<NotificationResponse> list = notificationService.getByUser("user1");
+        when(userRepository.findById("user1"))
+                .thenReturn(Optional.of(user)); // ✅ REQUIRED
+
+        when(notificationRepository.findByUserId("user1"))
+                .thenReturn(List.of(entity));
+
+        when(notificationMapper.toResponse(entity))
+                .thenReturn(resp);
+
+        List<NotificationResponse> list =
+                notificationService.getByUser("user1");
 
         assertEquals(1, list.size());
         assertEquals("notif1", list.get(0).getId());
     }
 
+    // ================= USER NOT FOUND =================
+    @Test
+    void send_userNotFound_shouldThrow() {
+
+        when(userRepository.findById("user1"))
+                .thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class,
+                () -> notificationService.send(req));
+    }
+
+    // ================= MARK AS READ =================
     @Test
     void markAsRead_shouldSetReadTrue() {
+
         entity.setRead(false);
-        when(notificationRepository.findById("notif1")).thenReturn(Optional.of(entity));
+
+        when(notificationRepository.findById("notif1"))
+                .thenReturn(Optional.of(entity));
 
         notificationService.markAsRead("notif1");
 
@@ -95,14 +150,21 @@ class NotificationServiceTest {
 
     @Test
     void markAsRead_notFound_shouldThrow() {
-        when(notificationRepository.findById("notif1")).thenReturn(Optional.empty());
-        assertThrows(ResourceNotFoundException.class, () -> notificationService.markAsRead("notif1"));
+
+        when(notificationRepository.findById("notif1"))
+                .thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class,
+                () -> notificationService.markAsRead("notif1"));
     }
 
     @Test
     void markAsRead_alreadyRead_shouldNotSave() {
+
         entity.setRead(true);
-        when(notificationRepository.findById("notif1")).thenReturn(Optional.of(entity));
+
+        when(notificationRepository.findById("notif1"))
+                .thenReturn(Optional.of(entity));
 
         notificationService.markAsRead("notif1");
 

@@ -1,5 +1,7 @@
 package com.movieticket.dto.request;
 
+import com.movieticket.entity.NotificationType;
+
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
@@ -16,5 +18,9 @@ public class NotificationRequest {
     private String message;
 
     private String referenceId;
+    @NotBlank(message = "Email is required")
+    private String email;
+    private NotificationType type;
+
 }
 

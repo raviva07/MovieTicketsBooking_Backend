@@ -5,6 +5,8 @@ import com.movieticket.dto.response.NotificationResponse;
 import com.movieticket.entity.Notification;
 import org.springframework.stereotype.Component;
 
+import java.time.Instant;
+
 @Component
 public class NotificationMapper {
 
@@ -18,7 +20,8 @@ public class NotificationMapper {
                 .message(notification.getMessage())
                 .read(notification.isRead())
                 .referenceId(notification.getReferenceId())
-                .createdAt(notification.getCreatedAt())
+                //.createdAt(notification.getCreatedAt())
+                .type(notification.getType())
                 .build();
     }
 
@@ -30,6 +33,9 @@ public class NotificationMapper {
                 .title(req.getTitle())
                 .message(req.getMessage())
                 .referenceId(req.getReferenceId())
+                .type(req.getType() != null ? req.getType() : null)
+                .read(false)
+                //.createdAt(Instant.now()) // 🔥 IMPORTANT FIX
                 .build();
     }
 }

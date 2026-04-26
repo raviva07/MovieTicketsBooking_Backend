@@ -5,6 +5,8 @@ import lombok.Data;
 
 import java.time.Instant;
 
+import com.movieticket.entity.NotificationType;
+
 @Data
 @Builder
 public class NotificationResponse {
@@ -20,4 +22,6 @@ public class NotificationResponse {
     private String referenceId;
 
     private Instant createdAt;
+    private NotificationType type;
 }
+

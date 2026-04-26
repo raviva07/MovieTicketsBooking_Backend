@@ -71,6 +71,10 @@ public class SecurityConfig {
 
                 // ================= USER MODULE =================
                 .requestMatchers("/api/users/profile/**").hasAnyRole("USER","ADMIN")
+                
+             // ================= NOTIFICATIONS =================
+                .requestMatchers("/api/notifications/**").hasAnyRole("USER", "ADMIN")
+
 
              // ================= SEAT BOOKING MODULE =================
                 .requestMatchers(HttpMethod.GET, "/api/seats/**").hasAnyRole("USER","ADMIN")

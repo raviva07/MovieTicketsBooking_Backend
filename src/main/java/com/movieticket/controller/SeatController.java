@@ -33,10 +33,13 @@ public class SeatController {
     private final SeatMapper seatMapper;
 
     // ================= USERNAME =================
-    // SAFE USERNAME HANDLER
     private String getUsername(Authentication auth) {
-        return (auth != null) ? auth.getName() : "testUser";
+        if (auth == null || auth.getName() == null || auth.getName().isBlank()) {
+            throw new UnauthorizedException("User is not authenticated");
+        }
+        return auth.getName();
     }
+
     // ================= GET BY THEATER =================
     @GetMapping("/theater/{theaterId}")
     public ResponseEntity<ApiResponse<List<SeatResponse>>> getSeatsByTheater(

@@ -48,11 +48,9 @@ public class Notification implements Serializable {
 
     private ReferenceType referenceType;
 
-    @CreatedDate
-    private Instant createdAt;
-
-    @LastModifiedDate
-    private Instant updatedAt;
+   
+    
+    
 
     
 }

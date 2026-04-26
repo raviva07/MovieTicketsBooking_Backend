@@ -2,6 +2,7 @@ package com.movieticket.service;
 
 import com.movieticket.dto.request.PaymentRequest;
 import com.movieticket.dto.request.PaymentVerifyRequest;
+import com.movieticket.dto.request.NotificationRequest;
 import com.movieticket.dto.response.PaymentResponse;
 import com.movieticket.entity.*;
 import com.movieticket.exception.ResourceNotFoundException;
@@ -30,6 +31,7 @@ public class PaymentService {
     private final PaymentRepository paymentRepository;
     private final BookingRepository bookingRepository;
     private final UserRepository userRepository;
+    private final NotificationService notificationService;
 
     @Value("${razorpay.keyId}")
     private String razorpayKeyId;
@@ -43,7 +45,6 @@ public class PaymentService {
         Booking booking = bookingRepository.findById(req.getBookingId())
                 .orElseThrow(() -> new ResourceNotFoundException("Booking not found"));
 
-        // ✅ SECURITY FIX (IMPORTANT)
         var user = userRepository.findByEmail(username)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
@@ -52,8 +53,7 @@ public class PaymentService {
         }
 
         try {
-        	RazorpayClient client = new RazorpayClient(razorpayKeyId, razorpayKeySecret);
-
+            RazorpayClient client = new RazorpayClient(razorpayKeyId, razorpayKeySecret);
 
             JSONObject options = new JSONObject();
             options.put(
@@ -79,10 +79,33 @@ public class PaymentService {
 
             paymentRepository.save(payment);
 
+            // 🔔 NOTIFICATION (Initiated)
+            notificationService.send(
+                    buildNotification(
+                            user.getId(),
+                            "Payment Initiated",
+                            "Your payment process has started",
+                            booking.getId(),
+                            NotificationType.GENERAL   // no specific type available
+                    )
+            );
+
             return mapToResponse(payment);
 
         } catch (Exception e) {
             log.error("❌ Payment initiation failed", e);
+
+            // 🔔 FAILURE NOTIFICATION
+            notificationService.send(
+                    buildNotification(
+                            user.getId(),
+                            "Payment Failed",
+                            "Payment initiation failed. Please try again",
+                            booking.getId(),
+                            NotificationType.PAYMENT_FAILED
+                    )
+            );
+
             throw new RuntimeException("Payment initiation failed");
         }
     }
@@ -111,9 +134,19 @@ public class PaymentService {
 
         paymentRepository.save(payment);
 
+        // 🔔 NOTIFICATION (Success)
+        notificationService.send(
+                buildNotification(
+                        user.getId(),
+                        "Payment Successful",
+                        "Your payment was successful",
+                        booking.getId(),
+                        NotificationType.PAYMENT_SUCCESS
+                )
+        );
+
         return mapToResponse(payment);
     }
-
 
     // ================= GET BY BOOKING =================
     public PaymentResponse getByBookingId(String bookingId, String username) {
@@ -127,7 +160,6 @@ public class PaymentService {
         Booking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new ResourceNotFoundException("Booking not found"));
 
-        // ✅ SECURITY CHECK
         var user = userRepository.findByEmail(username)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
@@ -136,6 +168,23 @@ public class PaymentService {
         }
 
         return mapToResponse(payment);
+    }
+
+    // ================= HELPER =================
+    private NotificationRequest buildNotification(
+            String userId,
+            String title,
+            String message,
+            String refId,
+            NotificationType type   // ✅ NEW
+    ) {
+        NotificationRequest req = new NotificationRequest();
+        req.setUserId(userId);
+        req.setTitle(title);
+        req.setMessage(message);
+        req.setReferenceId(refId);
+        req.setType(type); // ✅ IMPORTANT FIX
+        return req;
     }
 
     // ================= MAPPER =================
@@ -150,3 +199,4 @@ public class PaymentService {
                 .build();
     }
 }
+
